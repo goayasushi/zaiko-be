@@ -53,6 +53,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "zaiko_be.middleware.refresh_jwt.RefreshJWTMiddleware",
 ]
 
 ROOT_URLCONF = "zaiko_be.urls"
