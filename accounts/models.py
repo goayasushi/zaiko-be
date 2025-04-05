@@ -37,8 +37,19 @@ class CustomUser(AbstractUser):
     username = None  # usernameフィールドを無効化
     email = models.EmailField(_("email address"), unique=True)
 
+    # first_nameとlast_nameを上書きして必須項目にする
+    first_name = models.CharField(
+        _("first name"), max_length=150, blank=False, null=False
+    )
+    last_name = models.CharField(
+        _("last name"), max_length=150, blank=False, null=False
+    )
+
     USERNAME_FIELD = "email"  # 認証に使用するフィールド
-    REQUIRED_FIELDS = []  # createsuperuserコマンド実行時に要求されるフィールド
+    REQUIRED_FIELDS = [
+        "first_name",
+        "last_name",
+    ]  # createsuperuserコマンド実行時に要求されるフィールド
 
     objects = CustomUserManager()
 
