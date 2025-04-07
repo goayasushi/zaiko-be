@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework.test import APITestCase, APIClient
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 User = get_user_model()
 
@@ -101,3 +102,33 @@ class AuthAPITests(APITestCase):
         data = {"email": "test@example.com", "password": "wrongpassword"}
         response = self.client.post(url, data, format="json")
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_user_info_authenticated(self):
+        """認証済みユーザーのユーザー情報取得テスト"""
+        # JWT取得
+        refresh = RefreshToken.for_user(self.user)
+        access_token = str(refresh.access_token)
+
+        # トークンをヘッダーに設定
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {access_token}")
+
+        # /info/ エンドポイントにリクエスト
+        url = reverse("user_info")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["email"], "test@example.com")
+        self.assertEqual(response.data["first_name"], "太郎")
+        self.assertEqual(response.data["last_name"], "山田")
+        self.assertTrue(response.data["is_active"])
+        self.assertFalse(response.data["is_staff"])
+        self.assertFalse(response.data["is_superuser"])
+
+    def test_user_info_unauthenticated(self):
+        """未認証ユーザーのユーザー情報取得テスト"""
+        # 認証なしで /info/ エンドポイントにリクエスト
+        url = reverse("user_info")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["message"], "user not authenticated")
