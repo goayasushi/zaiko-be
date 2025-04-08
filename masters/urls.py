@@ -4,7 +4,7 @@ from masters.views import SupplierViewSet
 
 # DRFのルーターを設定
 router = DefaultRouter()
-router.register(r"suppliers", SupplierViewSet)
+router.register(r"suppliers", SupplierViewSet, basename="supplier")
 
 # 将来的に他のマスタモデルも追加可能
 
