@@ -257,6 +257,47 @@ class SupplierListAPITest(APITestCase):
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response2.data["results"]), 10)  # 残り10件
 
+    def test_custom_pagination_format(self):
+        """
+        カスタムページネーションのレスポンス形式をテスト
+        - 'current', 'total_pages'などのカスタムフィールドが含まれているか確認
+        """
+        # さらに25件のサプライヤーを追加（合計30件）
+        for i in range(5, 30):
+            Supplier.objects.create(
+                name=f"追加株式会社{i}",
+                phone=f"03-5678-{i:04d}",
+                email=f"add{i}@example.com",
+                postal_code=f"160-{i:04d}",
+                prefecture="大阪府",
+                city="大阪市",
+                town=f"梅田{i}-{i}",
+            )
+
+        # APIレスポンスを取得
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # カスタムページネーション形式のフィールドをチェック
+        self.assertIn("count", response.data)
+        self.assertIn("results", response.data)
+
+        # カスタムフィールドの存在確認
+        self.assertIn("current", response.data)
+        self.assertIn("total_pages", response.data)
+        self.assertIn("next", response.data)
+        self.assertIn("previous", response.data)
+
+        # 値の検証
+        self.assertEqual(response.data["current"], 1)  # 現在のページは1
+        self.assertEqual(response.data["total_pages"], 2)  # 30件なので2ページ
+
+        # ページ2に移動して検証
+        response2 = self.client.get(f"{self.url}?page=2")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(response2.data["current"], 2)  # 現在のページは2
+        self.assertEqual(response2.data["total_pages"], 2)  # 総ページ数は変わらず2
+
     def test_list_suppliers_unauthenticated(self):
         """
         未認証ユーザーがサプライヤー一覧を取得できないことをテスト
