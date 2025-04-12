@@ -260,7 +260,7 @@ class SupplierListAPITest(APITestCase):
     def test_custom_pagination_format(self):
         """
         カスタムページネーションのレスポンス形式をテスト
-        - 'current', 'total_pages'などのカスタムフィールドが含まれているか確認
+        - 'current', 'total_pages', 'page_size'などのカスタムフィールドが含まれているか確認
         """
         # さらに25件のサプライヤーを追加（合計30件）
         for i in range(5, 30):
@@ -285,18 +285,21 @@ class SupplierListAPITest(APITestCase):
         # カスタムフィールドの存在確認
         self.assertIn("current", response.data)
         self.assertIn("total_pages", response.data)
+        self.assertIn("page_size", response.data)  # ページサイズフィールドの存在確認
         self.assertIn("next", response.data)
         self.assertIn("previous", response.data)
 
         # 値の検証
         self.assertEqual(response.data["current"], 1)  # 現在のページは1
         self.assertEqual(response.data["total_pages"], 2)  # 30件なので2ページ
+        self.assertEqual(response.data["page_size"], 20)  # ページサイズは常に20
 
         # ページ2に移動して検証
         response2 = self.client.get(f"{self.url}?page=2")
         self.assertEqual(response2.status_code, status.HTTP_200_OK)
         self.assertEqual(response2.data["current"], 2)  # 現在のページは2
         self.assertEqual(response2.data["total_pages"], 2)  # 総ページ数は変わらず2
+        self.assertEqual(response2.data["page_size"], 20)  # ページサイズは常に20
 
     def test_list_suppliers_unauthenticated(self):
         """
