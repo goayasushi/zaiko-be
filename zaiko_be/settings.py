@@ -145,6 +145,8 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
+    "DEFAULT_PAGINATION_CLASS": "zaiko_be.pagination.CustomPagination",
+    "PAGE_SIZE": 20,
 }
 
 # Simple JWTの設定

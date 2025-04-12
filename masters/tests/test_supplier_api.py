@@ -157,3 +157,206 @@ class SupplierCreateAPITest(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
         self.assertEqual(Supplier.objects.count(), 0)  # サプライヤーは作成されない
+
+
+class SupplierListAPITest(APITestCase):
+    """
+    サプライヤー一覧取得APIのテストクラス
+    """
+
+    def setUp(self):
+        """
+        テスト前の準備
+        """
+        # テスト用ユーザーの作成
+        self.user = User.objects.create_user(
+            email="testuser@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
+        )
+
+        # APIクライアントの設定
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # サプライヤー一覧取得用のURL
+        self.url = reverse("supplier-list")
+
+        # テスト用サプライヤーデータの作成
+        self.suppliers = []
+        for i in range(5):
+            supplier = Supplier.objects.create(
+                supplier_code=(
+                    f"CODE{i:03d}" if i != 2 else None
+                ),  # コードなしのケースも含める
+                name=f"テスト株式会社{i}",
+                contact_person=(
+                    f"担当者{i}" if i != 3 else ""
+                ),  # 担当者なしのケースも含める
+                phone=f"03-1234-{i:04d}",
+                email=f"test{i}@example.com",
+                postal_code=f"100-{i:04d}",
+                prefecture="東京都",
+                city="千代田区",
+                town=f"丸の内{i}-{i}-{i}",
+                building=f"ビル{i}階" if i != 4 else "",  # 建物なしのケースも含める
+                website=(
+                    f"https://test{i}.com" if i != 1 else ""
+                ),  # Webサイトなしのケースも含める
+                remarks=f"備考{i}" if i != 0 else "",  # 備考なしのケースも含める
+            )
+            self.suppliers.append(supplier)
+
+    def test_list_suppliers(self):
+        """
+        サプライヤー一覧を取得できることをテスト
+        """
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションが適用されている場合
+        if "results" in response.data:
+            result_data = response.data["results"]
+            self.assertEqual(len(result_data), 5)  # テストで作成した5件のデータ
+        else:
+            # ページネーションが適用されていない場合
+            self.assertEqual(len(response.data), 5)  # テストで作成した5件のデータ
+
+    def test_list_suppliers_pagination(self):
+        """
+        ページネーションが正しく機能していることをテスト
+        - 合計30件のサプライヤーデータを作成し、ページネーションが機能するか確認
+        """
+        # さらに25件のサプライヤーを追加（合計30件）
+        for i in range(5, 30):
+            Supplier.objects.create(
+                name=f"追加株式会社{i}",
+                phone=f"03-5678-{i:04d}",
+                email=f"add{i}@example.com",
+                postal_code=f"160-{i:04d}",
+                prefecture="大阪府",
+                city="大阪市",
+                town=f"梅田{i}-{i}",
+            )
+
+        # 1ページ目を取得
+        response = self.client.get(f"{self.url}?page=1")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションのレスポンス構造を確認
+        self.assertIn("count", response.data)
+        self.assertEqual(response.data["count"], 30)  # 合計30件
+
+        # ページネーション設定（20件/ページ）が反映されているか確認
+        self.assertEqual(len(response.data["results"]), 20)
+
+        # 2ページ目を取得して残りのデータがあることを確認
+        response2 = self.client.get(f"{self.url}?page=2")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response2.data["results"]), 10)  # 残り10件
+
+    def test_custom_pagination_format(self):
+        """
+        カスタムページネーションのレスポンス形式をテスト
+        - 'current', 'total_pages', 'page_size'などのカスタムフィールドが含まれているか確認
+        """
+        # さらに25件のサプライヤーを追加（合計30件）
+        for i in range(5, 30):
+            Supplier.objects.create(
+                name=f"追加株式会社{i}",
+                phone=f"03-5678-{i:04d}",
+                email=f"add{i}@example.com",
+                postal_code=f"160-{i:04d}",
+                prefecture="大阪府",
+                city="大阪市",
+                town=f"梅田{i}-{i}",
+            )
+
+        # APIレスポンスを取得
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # カスタムページネーション形式のフィールドをチェック
+        self.assertIn("count", response.data)
+        self.assertIn("results", response.data)
+
+        # カスタムフィールドの存在確認
+        self.assertIn("current", response.data)
+        self.assertIn("total_pages", response.data)
+        self.assertIn("page_size", response.data)  # ページサイズフィールドの存在確認
+        self.assertIn("next", response.data)
+        self.assertIn("previous", response.data)
+
+        # 値の検証
+        self.assertEqual(response.data["current"], 1)  # 現在のページは1
+        self.assertEqual(response.data["total_pages"], 2)  # 30件なので2ページ
+        self.assertEqual(response.data["page_size"], 20)  # ページサイズは常に20
+
+        # ページ2に移動して検証
+        response2 = self.client.get(f"{self.url}?page=2")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(response2.data["current"], 2)  # 現在のページは2
+        self.assertEqual(response2.data["total_pages"], 2)  # 総ページ数は変わらず2
+        self.assertEqual(response2.data["page_size"], 20)  # ページサイズは常に20
+
+    def test_list_suppliers_unauthenticated(self):
+        """
+        未認証ユーザーがサプライヤー一覧を取得できないことをテスト
+        """
+        # クライアントを未認証状態にする
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_list_suppliers_fields(self):
+        """
+        サプライヤー一覧の各フィールドが正しく取得できることをテスト
+        """
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # レスポンスデータを取得
+        if "results" in response.data:
+            suppliers_data = response.data["results"]
+        else:
+            suppliers_data = response.data
+
+        # 1件目のサプライヤーデータを検証
+        supplier_data = next(
+            (s for s in suppliers_data if s["name"] == "テスト株式会社0"), None
+        )
+        self.assertIsNotNone(supplier_data)
+
+        # 各フィールドが正しく含まれていることを確認
+        self.assertEqual(supplier_data["supplier_code"], "CODE000")
+        self.assertEqual(supplier_data["name"], "テスト株式会社0")
+        self.assertEqual(supplier_data["contact_person"], "担当者0")
+        self.assertEqual(supplier_data["phone"], "03-1234-0000")
+        self.assertEqual(supplier_data["email"], "test0@example.com")
+        self.assertEqual(supplier_data["prefecture"], "東京都")
+        self.assertEqual(supplier_data["city"], "千代田区")
+        self.assertEqual(supplier_data["town"], "丸の内0-0-0")
+        self.assertEqual(supplier_data["building"], "ビル0階")
+        self.assertEqual(supplier_data["website"], "https://test0.com")
+        self.assertEqual(supplier_data["remarks"], "")  # 0番目は備考なし
+
+    def test_list_suppliers_empty(self):
+        """
+        サプライヤーが1件も登録されていない場合の挙動をテスト
+        """
+        # すべてのサプライヤーを削除
+        Supplier.objects.all().delete()
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションありの場合
+        if "results" in response.data:
+            self.assertEqual(response.data["count"], 0)
+            self.assertEqual(len(response.data["results"]), 0)
+        else:
+            # ページネーションなしの場合
+            self.assertEqual(len(response.data), 0)
