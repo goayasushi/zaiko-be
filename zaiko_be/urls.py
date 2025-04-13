@@ -17,9 +17,25 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+
+# ヘルスチェック用のビュー関数
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def health_check(request):
+    """
+    ALBのヘルスチェック用エンドポイント
+    認証なしでアクセス可能で、サービスの稼働状態を返す
+    """
+    return JsonResponse({"status": "ok"})
+
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("accounts.urls")),
     path("api/masters/", include("masters.urls")),
+    path("health/", health_check, name="health_check"),  # ヘルスチェック用URLパターン
 ]
