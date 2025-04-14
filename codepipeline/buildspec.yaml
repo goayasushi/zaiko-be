@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - git log -1
+      - ecr_host="public.ecr.aws/${ECR_PUBLIC_NAMESPACE}"
+      - ecr_repo="${ecr_host}/${ECR_REPO_NAME}"
+      - build_id="$(echo "${CODEBUILD_BUILD_ID}" | sed -e 's/.*://')"
+  build:
+    commands:
+      - |
+        aws ecr-public get-login-password --region us-east-1 \
+        | docker login --username 'AWS' --password-stdin "${ecr_host}"
+      - |
+        docker image build \
+          --tag "${ecr_repo}:${build_id}" \
+          --build-arg "BASE_IMAGE=${BASE_IMAGE}" \
+          .
+      - docker image tag "${ecr_repo}:${build_id}" "${ecr_repo}:latest"
+      - |
+        cat << EOD >> imagedefinitions.json
+        [{
+          "name":"${ECS_CONTAINER_NAME}",
+          "imageUri":"${ecr_repo}:${build_id}"
+        }]
+        EOD
+  post_build:
+    commands:
+      - docker image push "${ecr_repo}:${build_id}"
+      - docker image push "${ecr_repo}:latest"
+
+artifacts:
+  files:
+    - imagedefinitions.json
