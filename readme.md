@@ -105,3 +105,11 @@ docker 起動を前提として記載
 ```
 docker compose up --build -d
 ```
+
+## 備忘録
+
+### Amazon ECS の動的ポートマッピング
+
+タスク定義のホストポート, ec2 の sg のエフェメラルポート範囲の設定が必要  
+https://repost.aws/knowledge-center/dynamic-port-mapping-ecs  
+https://zenn.dev/kazu_o/scraps/7c18bbf7aa4565
