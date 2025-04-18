@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase, APIClient
 from masters.models import Supplier
+from unittest.mock import patch
 
 User = get_user_model()
 
@@ -360,3 +361,135 @@ class SupplierListAPITest(APITestCase):
         else:
             # ページネーションなしの場合
             self.assertEqual(len(response.data), 0)
+
+
+class SupplierBulkDeleteAPITest(APITestCase):
+    """サプライヤー一括削除のテスト"""
+
+    def setUp(self):
+        # テストユーザーの作成とログイン
+        self.user = User.objects.create_user(
+            email="test@example.com",
+            password="password",
+            first_name="テスト",
+            last_name="ユーザー",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        # テスト用サプライヤーデータの作成
+        self.suppliers = []
+        for i in range(5):
+            supplier = Supplier.objects.create(
+                name=f"テストサプライヤー{i}",
+                phone=f"0123456789{i}",
+                email=f"supplier{i}@example.com",
+                postal_code="123-4567",
+                prefecture="東京都",
+                city="千代田区",
+                town="丸の内1-1-1",
+            )
+            self.suppliers.append(supplier)
+
+        # 一括削除のエンドポイントURL
+        self.bulk_delete_url = reverse("supplier-bulk-delete")
+
+    def test_bulk_delete_success(self):
+        """複数のサプライヤーを正常に削除できることを確認"""
+        # 削除対象のID
+        ids = [self.suppliers[0].id, self.suppliers[1].id]
+        count_to_delete = len(ids)  # 削除対象の件数
+
+        # リクエスト実行
+        response = self.client.post(
+            self.bulk_delete_url, data={"ids": ids}, format="json"
+        )
+
+        # レスポンス確認
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("message", response.data)
+        self.assertIn(
+            f"{count_to_delete}件", response.data["message"]
+        )  # 正確な件数が含まれているか確認
+
+        # DBから削除されたことを確認
+        for supplier_id in ids:
+            self.assertFalse(Supplier.objects.filter(id=supplier_id).exists())
+
+        # 他のサプライヤーが削除されていないことを確認
+        self.assertEqual(Supplier.objects.count(), 3)
+
+    def test_bulk_delete_empty_ids(self):
+        """空のIDリストでエラーが返されることを確認"""
+        # 空のIDリストで削除を実行
+        response = self.client.post(
+            self.bulk_delete_url, data={"ids": []}, format="json"
+        )
+
+        # レスポンス確認
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+        # DBのレコード数が変わっていないことを確認
+        self.assertEqual(Supplier.objects.count(), 5)
+
+    def test_bulk_delete_nonexistent_ids(self):
+        """存在しないIDを含む場合、エラーが返されることを確認"""
+        # 存在しないIDを含む削除リスト
+        max_id = Supplier.objects.order_by("-id").first().id
+        ids = [self.suppliers[0].id, max_id + 100]
+
+        # リクエスト実行
+        response = self.client.post(
+            self.bulk_delete_url, data={"ids": ids}, format="json"
+        )
+
+        # レスポンス確認
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("error", response.data)
+
+        # DBのレコード数が変わっていないことを確認
+        self.assertEqual(Supplier.objects.count(), 5)
+
+    def test_bulk_delete_unauthorized(self):
+        """未認証ユーザーはアクセスできないことを確認"""
+        # クライアントからの認証を削除
+        self.client.force_authenticate(user=None)
+
+        # 削除対象のID
+        ids = [self.suppliers[0].id, self.suppliers[1].id]
+
+        # リクエスト実行
+        response = self.client.post(
+            self.bulk_delete_url, data={"ids": ids}, format="json"
+        )
+
+        # 認証エラーになることを確認
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # DBのレコード数が変わっていないことを確認
+        self.assertEqual(Supplier.objects.count(), 5)
+
+    def test_bulk_delete_transaction_error(self):
+        """トランザクションエラー時の処理をテスト"""
+        # 削除対象のID
+        ids = [self.suppliers[0].id, self.suppliers[1].id]
+
+        # Supplier.delete()メソッドでエラーを発生させるようにモック
+        with patch("django.db.models.query.QuerySet.delete") as mock_delete:
+            # delete()呼び出し時に例外をスロー
+            mock_delete.side_effect = Exception("テスト用の強制エラー")
+
+            # リクエスト実行
+            response = self.client.post(
+                self.bulk_delete_url, data={"ids": ids}, format="json"
+            )
+
+            # レスポンスの検証
+            self.assertEqual(
+                response.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+            self.assertIn("error", response.data)
+            self.assertIn("テスト用の強制エラー", response.data["error"])
+
+        # データベースのレコードが削除されていないことを確認
+        self.assertEqual(Supplier.objects.count(), 5)
