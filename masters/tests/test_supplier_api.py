@@ -493,3 +493,87 @@ class SupplierBulkDeleteAPITest(APITestCase):
 
         # データベースのレコードが削除されていないことを確認
         self.assertEqual(Supplier.objects.count(), 5)
+
+
+class SupplierRetrieveAPITest(APITestCase):
+    """
+    サプライヤー詳細取得APIのテストクラス
+    """
+
+    def setUp(self):
+        """
+        テスト前の準備
+        """
+        # テスト用ユーザーの作成
+        self.user = User.objects.create_user(
+            email="testuser@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
+        )
+
+        # APIクライアントの設定
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # テスト用サプライヤーデータの作成
+        self.supplier = Supplier.objects.create(
+            supplier_code="TEST123",
+            name="テスト詳細株式会社",
+            contact_person="詳細テスト太郎",
+            phone="03-1234-5678",
+            email="detail@example.com",
+            postal_code="100-0001",
+            prefecture="東京都",
+            city="千代田区",
+            town="丸の内1-1-1",
+            building="詳細ビル10階",
+            website="https://www.detail-test.co.jp",
+            remarks="詳細取得テスト用データ",
+        )
+
+        # サプライヤー詳細取得用のURL
+        self.url = reverse("supplier-detail", args=[self.supplier.id])
+
+    def test_retrieve_supplier(self):
+        """
+        サプライヤー詳細を取得できることをテスト
+        """
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # 各フィールドの値が正しく取得できることを確認
+        self.assertEqual(response.data["id"], self.supplier.id)
+        self.assertEqual(response.data["supplier_code"], self.supplier.supplier_code)
+        self.assertEqual(response.data["name"], self.supplier.name)
+        self.assertEqual(response.data["contact_person"], self.supplier.contact_person)
+        self.assertEqual(response.data["phone"], self.supplier.phone)
+        self.assertEqual(response.data["email"], self.supplier.email)
+        self.assertEqual(response.data["postal_code"], self.supplier.postal_code)
+        self.assertEqual(response.data["prefecture"], self.supplier.prefecture)
+        self.assertEqual(response.data["city"], self.supplier.city)
+        self.assertEqual(response.data["town"], self.supplier.town)
+        self.assertEqual(response.data["building"], self.supplier.building)
+        self.assertEqual(response.data["website"], self.supplier.website)
+        self.assertEqual(response.data["remarks"], self.supplier.remarks)
+
+    def test_retrieve_nonexistent_supplier(self):
+        """
+        存在しないIDのサプライヤー詳細を取得しようとすると404が返ることをテスト
+        """
+        # 存在しないIDのURL
+        nonexistent_url = reverse("supplier-detail", args=[999999])
+
+        response = self.client.get(nonexistent_url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_retrieve_supplier_unauthenticated(self):
+        """
+        未認証ユーザーがサプライヤー詳細を取得できないことをテスト
+        """
+        # クライアントを未認証状態にする
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
