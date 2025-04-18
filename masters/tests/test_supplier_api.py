@@ -577,3 +577,207 @@ class SupplierRetrieveAPITest(APITestCase):
 
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class SupplierUpdateAPITest(APITestCase):
+    """
+    サプライヤー更新APIのテストクラス
+    - PUT（全体更新）
+    - PATCH（部分更新）
+    """
+
+    def setUp(self):
+        """
+        テスト前の準備
+        """
+        # テスト用ユーザーの作成
+        self.user = User.objects.create_user(
+            email="testuser@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
+        )
+
+        # APIクライアントの設定
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # テスト用サプライヤーの作成
+        self.supplier = Supplier.objects.create(
+            supplier_code="UPDATE001",
+            name="更新前株式会社",
+            contact_person="更新前太郎",
+            phone="03-1234-5678",
+            email="before-update@example.com",
+            postal_code="100-0001",
+            prefecture="東京都",
+            city="千代田区",
+            town="丸の内1-1-1",
+            building="更新前ビル10階",
+            website="https://www.before-update.co.jp",
+            remarks="更新前の備考",
+        )
+
+        # 更新用のURL
+        self.url = reverse("supplier-detail", args=[self.supplier.id])
+
+        # 更新用データ（全体更新用）
+        self.update_data = {
+            "supplier_code": "UPDATE002",
+            "name": "更新後株式会社",
+            "contact_person": "更新後太郎",
+            "phone": "03-9876-5432",
+            "email": "after-update@example.com",
+            "postal_code": "160-0022",
+            "prefecture": "東京都",
+            "city": "新宿区",
+            "town": "新宿3-1-1",
+            "building": "更新後ビル20階",
+            "website": "https://www.after-update.co.jp",
+            "remarks": "更新後の備考",
+        }
+
+        # 部分更新用データ
+        self.partial_update_data = {
+            "name": "部分更新株式会社",
+            "email": "partial-update@example.com",
+        }
+
+    def test_update_supplier_put(self):
+        """
+        PUT方式で全体更新できることをテスト
+        """
+        response = self.client.put(self.url, self.update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # データベースから更新されたサプライヤーを再取得
+        self.supplier.refresh_from_db()
+
+        # 全フィールドが更新されていることを確認
+        self.assertEqual(self.supplier.supplier_code, self.update_data["supplier_code"])
+        self.assertEqual(self.supplier.name, self.update_data["name"])
+        self.assertEqual(
+            self.supplier.contact_person, self.update_data["contact_person"]
+        )
+        self.assertEqual(self.supplier.phone, self.update_data["phone"])
+        self.assertEqual(self.supplier.email, self.update_data["email"])
+        self.assertEqual(self.supplier.postal_code, self.update_data["postal_code"])
+        self.assertEqual(self.supplier.prefecture, self.update_data["prefecture"])
+        self.assertEqual(self.supplier.city, self.update_data["city"])
+        self.assertEqual(self.supplier.town, self.update_data["town"])
+        self.assertEqual(self.supplier.building, self.update_data["building"])
+        self.assertEqual(self.supplier.website, self.update_data["website"])
+        self.assertEqual(self.supplier.remarks, self.update_data["remarks"])
+
+    def test_update_supplier_put_invalid_data(self):
+        """
+        必須フィールドが欠けた状態でのPUT更新が失敗することをテスト
+        """
+        # 必須フィールド（name）を欠いたデータ
+        invalid_data = self.update_data.copy()
+        invalid_data.pop("name")
+
+        response = self.client.put(self.url, invalid_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # nameフィールドがエラーに含まれていることを確認
+        self.assertIn("name", response.data)
+
+        # データが更新されていないことを確認
+        self.supplier.refresh_from_db()
+        self.assertEqual(self.supplier.name, "更新前株式会社")  # 元の値のまま
+
+    def test_update_supplier_patch(self):
+        """
+        PATCH方式で部分更新できることをテスト
+        """
+        response = self.client.patch(self.url, self.partial_update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # データベースから更新されたサプライヤーを再取得
+        self.supplier.refresh_from_db()
+
+        # 指定したフィールドのみが更新されていることを確認
+        self.assertEqual(self.supplier.name, self.partial_update_data["name"])
+        self.assertEqual(self.supplier.email, self.partial_update_data["email"])
+
+        # 更新していないフィールドは元の値のままであることを確認
+        self.assertEqual(self.supplier.supplier_code, "UPDATE001")
+        self.assertEqual(self.supplier.contact_person, "更新前太郎")
+        self.assertEqual(self.supplier.phone, "03-1234-5678")
+
+    def test_update_nonexistent_supplier(self):
+        """
+        存在しないIDのサプライヤーを更新しようとすると404が返ることをテスト
+        """
+        # 存在しないIDのURL（末尾のスラッシュは不要）
+        nonexistent_url = reverse("supplier-detail", args=[999999])
+
+        response = self.client.put(nonexistent_url, self.update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+        # PATCHでも同様
+        patch_response = self.client.patch(
+            nonexistent_url, self.partial_update_data, format="json"
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_update_supplier_unauthenticated(self):
+        """
+        未認証ユーザーがサプライヤーを更新できないことをテスト
+        """
+        # クライアントを未認証状態にする
+        self.client.force_authenticate(user=None)
+
+        # PUT
+        put_response = self.client.put(self.url, self.update_data, format="json")
+        self.assertEqual(put_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # PATCH
+        patch_response = self.client.patch(
+            self.url, self.partial_update_data, format="json"
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_update_duplicate_supplier_code(self):
+        """
+        既存のsupplier_codeに更新しようとするとエラーになることをテスト
+        """
+        # 別のサプライヤーを作成
+        Supplier.objects.create(
+            supplier_code="EXISTING001",
+            name="既存株式会社",
+            phone="03-1111-2222",
+            email="existing@example.com",
+            postal_code="150-0001",
+            prefecture="東京都",
+            city="渋谷区",
+            town="渋谷1-1-1",
+        )
+
+        # 既存のsupplier_codeを使用したデータ
+        duplicate_data = self.update_data.copy()
+        duplicate_data["supplier_code"] = "EXISTING001"
+
+        # 更新実行
+        response = self.client.put(self.url, duplicate_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        # supplier_codeについてのエラーが含まれていることを確認
+        self.assertIn("supplier_code", response.data)
+
+    def test_update_supplier_empty_string_to_null(self):
+        """
+        supplier_codeを空文字列に更新するとNullに変換されることをテスト
+        """
+        update_data = self.update_data.copy()
+        update_data["supplier_code"] = ""
+
+        response = self.client.put(self.url, update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # データベースから更新されたサプライヤーを再取得
+        self.supplier.refresh_from_db()
+
+        # supplier_codeがNoneになっていることを確認
+        self.assertIsNone(self.supplier.supplier_code)
