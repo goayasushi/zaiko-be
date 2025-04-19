@@ -24,7 +24,7 @@ class SupplierViewSet(viewsets.ModelViewSet):
     serializer_class = SupplierSerializer
     permission_classes = [IsAuthenticated]
 
-    @action(methods=["post"], detail=False)
+    @action(methods=["post"], detail=False, url_path="bulk-delete")
     def bulk_delete(self, request):
         """
         複数のサプライヤーを一括で削除する
