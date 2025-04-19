@@ -44,4 +44,4 @@ class Supplier(models.Model):
     class Meta:
         verbose_name = "仕入先"
         verbose_name_plural = "仕入先"
-        ordering = ["created_at"]  # 作成日時順でデフォルト並び替え
+        ordering = ["id"]  # ID順でデフォルト並び替え
