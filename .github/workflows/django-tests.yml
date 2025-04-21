@@ -15,6 +15,7 @@ jobs:
       DATABASE_HOST: localhost
       DATABASE_PORT: "5432"
       SECRET_KEY: "ci-test-secret-key"
+      DJANGO_ENV: production
 
     services:
       postgres:
