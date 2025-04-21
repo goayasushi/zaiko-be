@@ -90,6 +90,10 @@ class SupplierCreateAPITest(APITestCase):
         self.assertEqual(supplier.phone, self.valid_supplier_data["phone"])
         self.assertEqual(supplier.email, self.valid_supplier_data["email"])
 
+        # 作成者と更新者が現在のユーザーに設定されていることを確認
+        self.assertEqual(supplier.created_by, self.user)
+        self.assertEqual(supplier.updated_by, self.user)
+
     def test_create_supplier_with_minimal_data(self):
         """
         必須フィールドのみのデータでサプライヤーを作成できるかテスト
@@ -105,6 +109,10 @@ class SupplierCreateAPITest(APITestCase):
         self.assertEqual(
             supplier.supplier_code, None
         )  # supplier_codeは指定していないのでNoneになる
+
+        # 作成者と更新者が現在のユーザーに設定されていることを確認
+        self.assertEqual(supplier.created_by, self.user)
+        self.assertEqual(supplier.updated_by, self.user)
 
     def test_create_supplier_with_invalid_data(self):
         """
@@ -530,6 +538,8 @@ class SupplierRetrieveAPITest(APITestCase):
             building="詳細ビル10階",
             website="https://www.detail-test.co.jp",
             remarks="詳細取得テスト用データ",
+            created_by=self.user,
+            updated_by=self.user,
         )
 
         # サプライヤー詳細取得用のURL
@@ -557,6 +567,19 @@ class SupplierRetrieveAPITest(APITestCase):
         self.assertEqual(response.data["building"], self.supplier.building)
         self.assertEqual(response.data["website"], self.supplier.website)
         self.assertEqual(response.data["remarks"], self.supplier.remarks)
+
+        # 作成者と更新者の情報が含まれていることを確認
+        self.assertIn("created_by", response.data)
+        self.assertIn("updated_by", response.data)
+
+        # 作成者と更新者のIDが正しいことを確認
+        self.assertEqual(response.data["created_by"]["id"], self.user.id)
+        self.assertEqual(response.data["updated_by"]["id"], self.user.id)
+
+        # 作成者と更新者の名前とメールアドレスが含まれていることを確認
+        self.assertIn("email", response.data["created_by"])
+        self.assertIn("first_name", response.data["created_by"])
+        self.assertIn("last_name", response.data["created_by"])
 
     def test_retrieve_nonexistent_supplier(self):
         """
@@ -598,6 +621,14 @@ class SupplierUpdateAPITest(APITestCase):
             last_name="User",
         )
 
+        # 別のテストユーザー（更新時に使用）
+        self.another_user = User.objects.create_user(
+            email="another@example.com",
+            password="anotherpassword123",
+            first_name="Another",
+            last_name="User",
+        )
+
         # APIクライアントの設定
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -616,6 +647,8 @@ class SupplierUpdateAPITest(APITestCase):
             building="更新前ビル10階",
             website="https://www.before-update.co.jp",
             remarks="更新前の備考",
+            created_by=self.user,
+            updated_by=self.user,
         )
 
         # 更新用のURL
@@ -668,6 +701,34 @@ class SupplierUpdateAPITest(APITestCase):
         self.assertEqual(self.supplier.building, self.update_data["building"])
         self.assertEqual(self.supplier.website, self.update_data["website"])
         self.assertEqual(self.supplier.remarks, self.update_data["remarks"])
+
+        # 作成者は変更されず、更新者が現在のユーザーに設定されていることを確認
+        self.assertEqual(self.supplier.created_by, self.user)  # 作成者は変わらない
+        self.assertEqual(self.supplier.updated_by, self.user)  # 更新者は現在のユーザー
+
+    def test_update_with_different_user(self):
+        """
+        別のユーザーで更新した場合、更新者が変更されることをテスト
+        """
+        # 別のユーザーとしてログイン
+        self.client.force_authenticate(user=self.another_user)
+
+        # 更新実行
+        response = self.client.patch(self.url, self.partial_update_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # データベースから更新されたサプライヤーを再取得
+        self.supplier.refresh_from_db()
+
+        # 指定したフィールドのみが更新されていることを確認
+        self.assertEqual(self.supplier.name, self.partial_update_data["name"])
+        self.assertEqual(self.supplier.email, self.partial_update_data["email"])
+
+        # 作成者は変更されず、更新者が新しいユーザーに変更されていることを確認
+        self.assertEqual(self.supplier.created_by, self.user)  # 元のユーザーのまま
+        self.assertEqual(
+            self.supplier.updated_by, self.another_user
+        )  # 新しいユーザーに変更
 
     def test_update_supplier_put_invalid_data(self):
         """
