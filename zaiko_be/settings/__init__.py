@@ -17,8 +17,7 @@ logging.basicConfig(
 # ロガーを取得
 logger = logging.getLogger(__name__)
 
-# DJANGO_SETTINGS_MODULE環境変数が設定されていれば、それを尊重
-# 設定されていなければ、環境変数DJANGO_ENVの値に基づいて設定ファイルを選択
+# DJANGO_ENVの値に基づいて設定ファイルを選択
 env = os.getenv("DJANGO_ENV", "development")
 
 # 現在のプロセスIDとプロセス名を取得してログに含める
