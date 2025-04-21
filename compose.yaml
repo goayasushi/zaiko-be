@@ -9,7 +9,11 @@ services:
       - db
     volumes:
       - .:/app
-    command: python manage.py runserver 0.0.0.0:8000
+    command: >
+      sh -c "
+        pip install django-debug-toolbar &&
+        python manage.py runserver 0.0.0.0:8000
+      "
 
   db:
     image: postgres:17.2

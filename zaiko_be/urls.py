@@ -20,6 +20,7 @@ from django.urls import path, include
 from django.http import JsonResponse
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+import debug_toolbar
 
 
 # ヘルスチェック用のビュー関数
@@ -38,4 +39,6 @@ urlpatterns = [
     path("api/auth/", include("accounts.urls")),
     path("api/masters/", include("masters.urls")),
     path("health/", health_check, name="health_check"),  # ヘルスチェック用URLパターン
+    path("api-auth/", include("rest_framework.urls")),
+    path("__debug__/", include(debug_toolbar.urls)),
 ]
