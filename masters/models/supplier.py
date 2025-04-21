@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 
 class Supplier(models.Model):
@@ -34,6 +35,22 @@ class Supplier(models.Model):
     )
     website = models.URLField("Webサイト", blank=True, default="")
     remarks = models.TextField("備考", blank=True, default="")
+
+    # 作成者と更新者フィールド
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_suppliers",
+        verbose_name="作成者",
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="updated_suppliers",
+        verbose_name="更新者",
+    )
 
     created_at = models.DateTimeField("作成日時", auto_now_add=True)
     updated_at = models.DateTimeField("更新日時", auto_now=True)

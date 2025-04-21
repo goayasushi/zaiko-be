@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from masters.models import Supplier
+from accounts.serializers import UserSerializer
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -17,9 +18,14 @@ class SupplierSerializer(serializers.ModelSerializer):
     - town: 必須
     """
 
+    # 作成者と更新者をネストされたオブジェクトとして定義
+    created_by = UserSerializer(read_only=True)
+    updated_by = UserSerializer(read_only=True)
+
     class Meta:
         model = Supplier
         fields = "__all__"  # すべてのフィールドを含める
+        read_only_fields = ["created_by", "updated_by"]  # 読み取り専用フィールドを指定
 
     def validate_supplier_code(self, value):
         """
