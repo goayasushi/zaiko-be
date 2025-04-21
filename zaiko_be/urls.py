@@ -15,6 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
+import os
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
@@ -33,9 +34,23 @@ def health_check(request):
     return JsonResponse({"status": "ok"})
 
 
+# 共通のURLパターン（すべての環境で有効）
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/auth/", include("accounts.urls")),
     path("api/masters/", include("masters.urls")),
     path("health/", health_check, name="health_check"),  # ヘルスチェック用URLパターン
 ]
+
+# 環境変数から現在の環境を取得（デフォルトは開発環境）
+env = os.getenv("DJANGO_ENV", "development")
+
+# 開発環境の場合のみ、追加のURLパターンを有効化
+if env != "production":
+    import debug_toolbar
+
+    # 開発環境専用のURLパターン
+    urlpatterns += [
+        path("api-auth/", include("rest_framework.urls")),  # ブラウザブルAPI用
+        path("__debug__/", include(debug_toolbar.urls)),  # Django Debug Toolbar用
+    ]

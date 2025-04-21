@@ -17,12 +17,25 @@ class SupplierViewSet(viewsets.ModelViewSet):
     - 更新（PUT /api/masters/suppliers/{id}/）
     - 部分更新（PATCH /api/masters/suppliers/{id}/）
     - 削除（DELETE /api/masters/suppliers/{id}/）
-    - 一括削除（POST /api/masters/suppliers/bulk_delete/）
+    - 一括削除（POST /api/masters/suppliers/bulk-delete/）
     """
 
-    queryset = Supplier.objects.all()
+    # N+1問題を回避するためselect_relatedを使用
+    queryset = Supplier.objects.select_related("created_by", "updated_by").all()
     serializer_class = SupplierSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """
+        新しいサプライヤーを作成する際に、現在のユーザーを作成者および更新者として設定
+        """
+        serializer.save(created_by=self.request.user, updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        """
+        サプライヤーを更新する際に、現在のユーザーを更新者として設定
+        """
+        serializer.save(updated_by=self.request.user)
 
     @action(methods=["post"], detail=False, url_path="bulk-delete")
     def bulk_delete(self, request):
