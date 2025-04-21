@@ -5,6 +5,8 @@ services:
       - "8000:8000"
     env_file:
       - .env
+    environment:
+      - PYTHONUNBUFFERED=1 # Pythonの出力バッファリングを無効化（ログをリアルタイムに表示）
     depends_on:
       - db
     volumes:
