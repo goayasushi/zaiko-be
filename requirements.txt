@@ -5,3 +5,6 @@ psycopg2
 gunicorn
 djangorestframework-simplejwt
 requests
+Pillow
+boto3
+django-storages
