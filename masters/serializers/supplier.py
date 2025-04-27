@@ -45,3 +45,14 @@ class SupplierSerializer(serializers.ModelSerializer):
                 "この取引先コードは既に使用されています。"
             )
         return value
+
+
+class SimpleSupplierSerializer(serializers.ModelSerializer):
+    """
+    サプライヤーの簡易シリアライザー
+    ネストされたレスポンスで使用するための最小限のフィールドのみを含む
+    """
+
+    class Meta:
+        model = Supplier
+        fields = ("id", "name")
