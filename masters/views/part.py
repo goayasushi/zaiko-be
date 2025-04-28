@@ -3,8 +3,6 @@ from ..models import Part
 from ..serializers import PartSerializer
 from rest_framework.permissions import IsAuthenticated
 
-# from rest_framework.permissions import IsAuthenticated # 必要に応じて追加
-
 
 class PartViewSet(viewsets.ModelViewSet):
     """
@@ -13,7 +11,7 @@ class PartViewSet(viewsets.ModelViewSet):
 
     queryset = Part.objects.select_related("supplier", "created_by", "updated_by").all()
     serializer_class = PartSerializer
-    permission_classes = [IsAuthenticated]  # 必要に応じて認証を設定
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
         """
