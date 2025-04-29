@@ -30,6 +30,10 @@ if env == "production":
     logger.info(
         f"本番環境(production)の設定ファイルが読み込まれました [{process_info}]"
     )
+elif env == "ci":
+    from .ci import *
+
+    logger.info(f"CI環境(ci)の設定ファイルが読み込まれました [{process_info}]")
 else:
     from .development import *
 

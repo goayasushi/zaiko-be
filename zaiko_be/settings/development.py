@@ -54,3 +54,10 @@ LOGGING["loggers"].update(
         },
     }
 )
+
+# Media files settings (in base settings)
+MEDIA_ROOT = "/app/media"
+MEDIA_URL = "/media/"
+
+# Default file storage
+DEFAULT_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
