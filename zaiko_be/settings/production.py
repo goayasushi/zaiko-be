@@ -4,6 +4,7 @@
 
 from .base import *  # 共通設定をインポート
 import requests
+import os
 
 
 # デバッグモードを無効に
@@ -34,3 +35,11 @@ CSRF_COOKIE_SECURE = True  # CSRFトークンにセキュアCookieを使用
 SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = "DENY"
+
+# AWS S3 settings for media files
+AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "ap-northeast-1")
+AWS_CLOUDFRONT_DOMAIN = os.getenv("AWS_CLOUDFRONT_DOMAIN")
+DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+AWS_S3_CUSTOM_DOMAIN = AWS_CLOUDFRONT_DOMAIN
+MEDIA_URL = f"https://{AWS_CLOUDFRONT_DOMAIN}/"
