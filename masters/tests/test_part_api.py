@@ -130,6 +130,24 @@ class PartCreateAPITest(APITestCase):
         self.assertEqual(part.created_by, self.user)
         self.assertEqual(part.updated_by, self.user)
 
+    def test_create_part_with_empty_string_values(self):
+        """
+        stock_quantityとreorder_levelに空文字列を設定しても正しく0に変換されることをテスト
+        """
+        data_with_empty_strings = self.valid_part_data.copy()
+        data_with_empty_strings["stock_quantity"] = ""
+        data_with_empty_strings["reorder_level"] = ""
+
+        response = self.client.post(self.url, data_with_empty_strings, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Part.objects.count(), 1)
+
+        part = Part.objects.get()
+        # 空文字列が0に正しく変換されていることを確認
+        self.assertEqual(part.stock_quantity, 0)
+        self.assertEqual(part.reorder_level, 0)
+
     def test_create_part_with_invalid_data(self):
         """
         無効なデータ（必須フィールド欠け）で部品を作成できないことをテスト

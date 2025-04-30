@@ -289,6 +289,22 @@ class PartFieldValidationTest(TestCase):
         self.assertIn("stock_quantity", errors)
         self.assertIn("整数", str(errors["stock_quantity"]))
 
+    def test_stock_quantity_empty_string(self):
+        """
+        stock_quantityが空文字の場合、0に変換されてエラーにならないことをテスト
+        """
+        data = self.valid_part_data.copy()
+        data["stock_quantity"] = ""
+
+        # シリアライザーを直接呼び出して検証
+        serializer = PartSerializer(data=data)
+        self.assertTrue(
+            serializer.is_valid(), f"バリデーションエラー: {serializer.errors}"
+        )
+
+        # 変換後の値を確認
+        self.assertEqual(serializer.validated_data["stock_quantity"], 0)
+
     # reorder_level フィールドのテスト
     def test_reorder_level_negative(self):
         """
@@ -320,6 +336,40 @@ class PartFieldValidationTest(TestCase):
         errors = self._validate_serializer(invalid_float_data)
         self.assertIn("reorder_level", errors)
         self.assertIn("整数", str(errors["reorder_level"]))
+
+    def test_reorder_level_empty_string(self):
+        """
+        reorder_levelが空文字の場合、0に変換されてエラーにならないことをテスト
+        """
+        data = self.valid_part_data.copy()
+        data["reorder_level"] = ""
+
+        # シリアライザーを直接呼び出して検証
+        serializer = PartSerializer(data=data)
+        self.assertTrue(
+            serializer.is_valid(), f"バリデーションエラー: {serializer.errors}"
+        )
+
+        # 変換後の値を確認
+        self.assertEqual(serializer.validated_data["reorder_level"], 0)
+
+    def test_empty_strings_both_fields(self):
+        """
+        stock_quantityとreorder_levelの両方が空文字の場合、両方とも0に変換されることをテスト
+        """
+        data = self.valid_part_data.copy()
+        data["stock_quantity"] = ""
+        data["reorder_level"] = ""
+
+        # シリアライザーを直接呼び出して検証
+        serializer = PartSerializer(data=data)
+        self.assertTrue(
+            serializer.is_valid(), f"バリデーションエラー: {serializer.errors}"
+        )
+
+        # 変換後の値を確認
+        self.assertEqual(serializer.validated_data["stock_quantity"], 0)
+        self.assertEqual(serializer.validated_data["reorder_level"], 0)
 
     # image フィールドのテスト
     def test_image_invalid_format(self):
