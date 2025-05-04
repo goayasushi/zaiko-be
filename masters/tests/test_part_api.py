@@ -55,6 +55,7 @@ class PartCreateAPITest(APITestCase):
             "supplier_id": self.supplier.id,
             "cost_price": "1000.00",
             "selling_price": "2000.00",
+            "tax_rate": "10.00",
             "stock_quantity": 10,
             "reorder_level": 5,
             "description": "テスト用部品の説明",
@@ -97,6 +98,7 @@ class PartCreateAPITest(APITestCase):
         self.assertEqual(
             part.selling_price, Decimal(self.valid_part_data["selling_price"])
         )
+        self.assertEqual(part.tax_rate, Decimal(self.valid_part_data["tax_rate"]))
         self.assertEqual(part.stock_quantity, self.valid_part_data["stock_quantity"])
         self.assertEqual(part.reorder_level, self.valid_part_data["reorder_level"])
         self.assertEqual(part.description, self.valid_part_data["description"])
@@ -122,6 +124,7 @@ class PartCreateAPITest(APITestCase):
         self.assertEqual(
             part.selling_price, Decimal(self.minimal_part_data["selling_price"])
         )
+        self.assertEqual(part.tax_rate, Decimal("10.00"))  # デフォルト値
         self.assertEqual(part.stock_quantity, 0)  # デフォルト値
         self.assertEqual(part.reorder_level, 0)  # デフォルト値
         self.assertEqual(part.description, "")  # デフォルト値
@@ -129,6 +132,21 @@ class PartCreateAPITest(APITestCase):
         # 作成者と更新者が現在のユーザーに設定されていることを確認
         self.assertEqual(part.created_by, self.user)
         self.assertEqual(part.updated_by, self.user)
+
+    def test_create_part_with_empty_tax_rate(self):
+        """
+        空の税率を送信した場合にデフォルト値が適用されるかテスト
+        """
+        data_with_empty_tax = self.valid_part_data.copy()
+        data_with_empty_tax["tax_rate"] = ""  # 空の税率
+
+        response = self.client.post(self.url, data_with_empty_tax, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Part.objects.count(), 1)
+
+        part = Part.objects.get()
+        self.assertEqual(part.tax_rate, Decimal("10.00"))  # デフォルト値が適用される
 
     def test_create_part_with_empty_string_values(self):
         """

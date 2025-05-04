@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from django.urls import reverse
 from django.core.files.uploadedfile import SimpleUploadedFile
+from decimal import Decimal
 
 from masters.serializers import PartSerializer
 from masters.models import Supplier
@@ -58,6 +59,7 @@ class PartFieldValidationTest(TestCase):
             "supplier_id": self.supplier.id,
             "cost_price": "1000.00",
             "selling_price": "2000.00",
+            "tax_rate": "10.00",
             "stock_quantity": 10,
             "reorder_level": 5,
             "description": "テスト用部品の説明",
@@ -257,6 +259,90 @@ class PartFieldValidationTest(TestCase):
         self.assertIn("selling_price", errors)
         self.assertIn("数値", str(errors["selling_price"]))
 
+    # tax_rate フィールドのテスト
+    def test_tax_rate_default(self):
+        """
+        tax_rateを指定しない場合、デフォルト値（10.00）が設定されることをテスト
+        """
+        data = self.valid_part_data.copy()
+        data.pop("tax_rate")
+
+        # シリアライザーを直接呼び出して検証
+        serializer = PartSerializer(data=data)
+        self.assertTrue(
+            serializer.is_valid(), f"バリデーションエラー: {serializer.errors}"
+        )
+
+        # デフォルト値が適用されることを確認
+        # 注：シリアライザーのvalidated_dataには含まれないため、APIテストで確認
+
+    def test_tax_rate_negative(self):
+        """
+        tax_rateが負の値の場合エラーになることをテスト
+        """
+        invalid_data = self.valid_part_data.copy()
+        invalid_data["tax_rate"] = "-5.00"
+
+        errors = self._validate_serializer(invalid_data)
+        self.assertIn("tax_rate", errors)
+        self.assertIn("0.00以上", str(errors["tax_rate"]))
+
+    def test_tax_rate_format(self):
+        """
+        tax_rateが数値として無効な場合エラーになることをテスト
+        """
+        invalid_data = self.valid_part_data.copy()
+        invalid_data["tax_rate"] = "invalid_tax"
+
+        errors = self._validate_serializer(invalid_data)
+        self.assertIn("tax_rate", errors)
+        self.assertIn("数値", str(errors["tax_rate"]))
+
+    def test_tax_rate_boundary_values(self):
+        """
+        tax_rateの境界値テスト
+        標準的な税率範囲内（0%〜100%）と、極端な値（999.99%）のテスト
+        """
+        # 0%：有効
+        zero_tax_data = self.valid_part_data.copy()
+        zero_tax_data["tax_rate"] = "0.00"
+        errors = self._validate_serializer(zero_tax_data)
+        self.assertNotIn("tax_rate", errors)
+
+        # 標準的な値（8%）：有効
+        standard_tax_data = self.valid_part_data.copy()
+        standard_tax_data["tax_rate"] = "8.00"
+        errors = self._validate_serializer(standard_tax_data)
+        self.assertNotIn("tax_rate", errors)
+
+        # 上限（100%）：有効
+        max_tax_data = self.valid_part_data.copy()
+        max_tax_data["tax_rate"] = "100.00"
+        errors = self._validate_serializer(max_tax_data)
+        self.assertNotIn("tax_rate", errors)
+
+        # 極端な値（999.99%）：有効（ビジネス上制限する場合は別途バリデーション追加）
+        extreme_tax_data = self.valid_part_data.copy()
+        extreme_tax_data["tax_rate"] = "999.99"
+        errors = self._validate_serializer(extreme_tax_data)
+        self.assertNotIn("tax_rate", errors)
+
+    def test_tax_rate_empty_string(self):
+        """
+        tax_rateが空文字の場合、デフォルト値(10.00)に変換されてエラーにならないことをテスト
+        """
+        data = self.valid_part_data.copy()
+        data["tax_rate"] = ""
+
+        # シリアライザーを直接呼び出して検証
+        serializer = PartSerializer(data=data)
+        self.assertTrue(
+            serializer.is_valid(), f"バリデーションエラー: {serializer.errors}"
+        )
+
+        # 変換後の値を確認（デフォルト値が設定される）
+        self.assertEqual(serializer.validated_data["tax_rate"], Decimal("10.00"))
+
     # stock_quantity フィールドのテスト
     def test_stock_quantity_negative(self):
         """
@@ -399,11 +485,13 @@ class PartFieldValidationTest(TestCase):
         invalid_data.pop("name")  # 必須フィールドを削除
         invalid_data["category"] = "invalid_category"  # 無効なカテゴリ
         invalid_data["cost_price"] = "-100.00"  # 負の原価
+        invalid_data["tax_rate"] = "-10.00"  # 負の税率
 
         errors = self._validate_serializer(invalid_data)
         self.assertIn("name", errors)
         self.assertIn("category", errors)
         self.assertIn("cost_price", errors)
+        self.assertIn("tax_rate", errors)
 
     # 正常系のテスト
     def test_valid_data(self):
