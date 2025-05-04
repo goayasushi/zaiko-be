@@ -41,6 +41,13 @@ class Part(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.00"))],
     )
+    tax_rate = models.DecimalField(
+        "税率(%)",
+        max_digits=5,
+        decimal_places=2,
+        default=10.00,
+        validators=[MinValueValidator(Decimal("0.00"))],
+    )
 
     # 在庫情報
     stock_quantity = models.PositiveIntegerField("現在庫数", default=0)
