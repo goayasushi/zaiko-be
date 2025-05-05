@@ -4,6 +4,7 @@
 
 from .base import *  # 共通設定をインポート
 import requests
+import logging
 import os
 
 
