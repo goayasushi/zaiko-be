@@ -11,6 +11,7 @@ services:
       - db
     volumes:
       - .:/app
+      - ./media:/app/media # メディアファイル用のボリュームマウントを追加
     command: >
       sh -c "
         pip install django-debug-toolbar &&

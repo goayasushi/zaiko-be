@@ -46,7 +46,7 @@ urlpatterns = [
 env = os.getenv("DJANGO_ENV", "development")
 
 # 開発環境の場合のみ、追加のURLパターンを有効化
-if env != "production":
+if env == "development":
     import debug_toolbar
 
     # 開発環境専用のURLパターン
@@ -54,3 +54,12 @@ if env != "production":
         path("api-auth/", include("rest_framework.urls")),  # ブラウザブルAPI用
         path("__debug__/", include(debug_toolbar.urls)),  # Django Debug Toolbar用
     ]
+
+# 本番環境以外は、メディアファイルを提供する設定を追加
+if env != "production":
+    # メディアファイルを提供する設定
+    from django.conf import settings
+    from django.conf.urls.static import static
+
+    # DEBUGの値に関わらず、メディアファイルを提供
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
