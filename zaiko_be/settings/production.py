@@ -4,7 +4,6 @@
 
 from .base import *  # 共通設定をインポート
 import requests
-import logging
 import os
 
 
@@ -38,11 +37,19 @@ SECURE_BROWSER_XSS_FILTER = True
 X_FRAME_OPTIONS = "DENY"
 
 # AWS S3 settings for media files
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "ap-northeast-1")
 AWS_CLOUDFRONT_DOMAIN = os.getenv("AWS_CLOUDFRONT_DOMAIN")
-DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-AWS_S3_CUSTOM_DOMAIN = AWS_CLOUDFRONT_DOMAIN
+
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "bucket_name": os.getenv("AWS_STORAGE_BUCKET_NAME"),
+            "region_name": os.getenv("AWS_S3_REGION_NAME", "ap-northeast-1"),
+            "custom_domain": AWS_CLOUDFRONT_DOMAIN,
+        },
+    },
+}
+
 MEDIA_URL = f"https://{AWS_CLOUDFRONT_DOMAIN}/"
 
 # S3操作に特化したロギング設定
