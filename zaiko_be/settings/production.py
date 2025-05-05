@@ -43,3 +43,45 @@ AWS_CLOUDFRONT_DOMAIN = os.getenv("AWS_CLOUDFRONT_DOMAIN")
 DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
 AWS_S3_CUSTOM_DOMAIN = AWS_CLOUDFRONT_DOMAIN
 MEDIA_URL = f"https://{AWS_CLOUDFRONT_DOMAIN}/"
+
+# S3操作に特化したロギング設定
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "simple": {
+            "format": "[%(asctime)s] %(levelname)s %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+    },
+    "loggers": {
+        # boto3 の S3 操作に絞って DEBUG 出力を有効化
+        "boto3.resources.action": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # botocore のリクエスト／レスポンスのログ
+        "botocore.vendored.requests.packages.urllib3": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # django-storages の S3 ストレージ関連ログ
+        "storages.backends.s3boto3": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        # 既存のアプリロガーは INFO のまま
+        "": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
+    },
+}
