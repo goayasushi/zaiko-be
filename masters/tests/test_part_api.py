@@ -293,3 +293,253 @@ class PartCreateAPITest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("image", response.data)
         self.assertEqual(Part.objects.count(), 0)  # 部品は作成されない
+
+
+class PartListAPITest(APITestCase):
+    """
+    部品一覧取得APIのテストクラス
+    """
+
+    def setUp(self):
+        """
+        テスト前の準備
+        """
+        # テスト用ユーザーの作成
+        self.user = User.objects.create_user(
+            email="testuser@example.com",
+            password="testpassword123",
+            first_name="Test",
+            last_name="User",
+        )
+
+        # APIクライアントの設定
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+        # 部品一覧取得用のURL
+        self.url = reverse("part-list")
+
+        # テスト用サプライヤーの作成
+        self.supplier1 = Supplier.objects.create(
+            name="サプライヤーA",
+            phone="03-1234-5678",
+            email="supplierA@example.com",
+            postal_code="100-0001",
+            prefecture="東京都",
+            city="千代田区",
+            town="丸の内1-1-1",
+        )
+
+        self.supplier2 = Supplier.objects.create(
+            name="サプライヤーB",
+            phone="03-8765-4321",
+            email="supplierB@example.com",
+            postal_code="160-0022",
+            prefecture="東京都",
+            city="新宿区",
+            town="新宿3-1-1",
+        )
+
+        # テスト用部品データの作成
+        self.parts = []
+        categories = [
+            Part.Category.SHAFT,
+            Part.Category.HEAD,
+            Part.Category.GRIP,
+            Part.Category.OTHER,
+            Part.Category.OTHER,
+        ]
+
+        for i in range(5):
+            part = Part.objects.create(
+                name=f"テスト部品{i}",
+                category=categories[i].value,
+                supplier=self.supplier1 if i % 2 == 0 else self.supplier2,
+                cost_price=Decimal(f"{1000 + i * 100}.00"),
+                selling_price=Decimal(f"{2000 + i * 200}.00"),
+                tax_rate=Decimal("10.00"),
+                stock_quantity=10 + i * 5,
+                reorder_level=5 + i,
+                description=(
+                    f"テスト用部品{i}の説明" if i != 0 else ""
+                ),  # 説明なしのケースも含める
+                created_by=self.user,
+                updated_by=self.user,
+            )
+            self.parts.append(part)
+
+    def test_list_parts(self):
+        """
+        部品一覧を取得できることをテスト
+        """
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションが適用されている場合
+        if "results" in response.data:
+            result_data = response.data["results"]
+            self.assertEqual(len(result_data), 5)  # テストで作成した5件のデータ
+        else:
+            # ページネーションが適用されていない場合
+            self.assertEqual(len(response.data), 5)  # テストで作成した5件のデータ
+
+    def test_list_parts_pagination(self):
+        """
+        ページネーションが正しく機能していることをテスト
+        - 合計30件の部品データを作成し、ページネーションが機能するか確認
+        """
+        # さらに25件の部品を追加（合計30件）
+        for i in range(5, 30):
+            Part.objects.create(
+                name=f"追加部品{i}",
+                category=Part.Category.OTHER.value,
+                supplier=self.supplier1 if i % 2 == 0 else self.supplier2,
+                cost_price=Decimal(f"{500 + i * 50}.00"),
+                selling_price=Decimal(f"{1000 + i * 100}.00"),
+                tax_rate=Decimal("10.00"),
+                stock_quantity=i,
+                reorder_level=i // 2,
+            )
+
+        # 1ページ目を取得
+        response = self.client.get(f"{self.url}?page=1")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションのレスポンス構造を確認
+        self.assertIn("count", response.data)
+        self.assertEqual(response.data["count"], 30)  # 合計30件
+
+        # ページネーション設定（20件/ページ）が反映されているか確認
+        self.assertEqual(len(response.data["results"]), 20)
+
+        # 2ページ目を取得して残りのデータがあることを確認
+        response2 = self.client.get(f"{self.url}?page=2")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response2.data["results"]), 10)  # 残り10件
+
+    def test_custom_pagination_format(self):
+        """
+        カスタムページネーションのレスポンス形式をテスト
+        - 'current', 'total_pages', 'page_size'などのカスタムフィールドが含まれているか確認
+        """
+        # さらに25件の部品を追加（合計30件）
+        for i in range(5, 30):
+            Part.objects.create(
+                name=f"追加部品{i}",
+                category=Part.Category.OTHER.value,
+                supplier=self.supplier1 if i % 2 == 0 else self.supplier2,
+                cost_price=Decimal(f"{500 + i * 50}.00"),
+                selling_price=Decimal(f"{1000 + i * 100}.00"),
+            )
+
+        # APIレスポンスを取得
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # カスタムページネーション形式のフィールドをチェック
+        self.assertIn("count", response.data)
+        self.assertIn("results", response.data)
+
+        # カスタムフィールドの存在確認
+        self.assertIn("current", response.data)
+        self.assertIn("total_pages", response.data)
+        self.assertIn("page_size", response.data)  # ページサイズフィールドの存在確認
+        self.assertIn("next", response.data)
+        self.assertIn("previous", response.data)
+
+        # 値の検証
+        self.assertEqual(response.data["current"], 1)  # 現在のページは1
+        self.assertEqual(response.data["total_pages"], 2)  # 30件なので2ページ
+        self.assertEqual(response.data["page_size"], 20)  # ページサイズは常に20
+
+        # ページ2に移動して検証
+        response2 = self.client.get(f"{self.url}?page=2")
+        self.assertEqual(response2.status_code, status.HTTP_200_OK)
+        self.assertEqual(response2.data["current"], 2)  # 現在のページは2
+        self.assertEqual(response2.data["total_pages"], 2)  # 総ページ数は変わらず2
+        self.assertEqual(response2.data["page_size"], 20)  # ページサイズは常に20
+
+    def test_list_parts_unauthenticated(self):
+        """
+        未認証ユーザーが部品一覧を取得できないことをテスト
+        """
+        # クライアントを未認証状態にする
+        self.client.force_authenticate(user=None)
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_list_parts_fields(self):
+        """
+        部品一覧の各フィールドが正しく取得できることをテスト
+        """
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # レスポンスデータを取得
+        if "results" in response.data:
+            parts_data = response.data["results"]
+        else:
+            parts_data = response.data
+
+        # 1件目の部品データを検証
+        part_data = next((p for p in parts_data if p["name"] == "テスト部品0"), None)
+        self.assertIsNotNone(part_data)
+
+        # 各フィールドが正しく含まれていることを確認
+        self.assertEqual(part_data["name"], "テスト部品0")
+        self.assertEqual(part_data["category"], Part.Category.SHAFT.value)
+        self.assertEqual(part_data["supplier"]["id"], self.supplier1.id)
+        self.assertEqual(part_data["supplier"]["name"], self.supplier1.name)
+        self.assertEqual(part_data["cost_price"], "1000.00")
+        self.assertEqual(part_data["selling_price"], "2000.00")
+        self.assertEqual(part_data["tax_rate"], "10.00")
+        self.assertEqual(part_data["stock_quantity"], 10)
+        self.assertEqual(part_data["reorder_level"], 5)
+        self.assertEqual(part_data["description"], "")  # 0番目は説明なし
+
+        # 作成者・更新者情報が含まれていることを確認
+        self.assertIn("created_by", part_data)
+        self.assertIn("updated_by", part_data)
+
+    def test_list_parts_supplier_nested_data(self):
+        """
+        部品一覧でサプライヤー情報がネストされて返されることをテスト
+        """
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # レスポンスデータを取得
+        if "results" in response.data:
+            parts_data = response.data["results"]
+        else:
+            parts_data = response.data
+
+        # サプライヤーBが設定された部品を検証
+        part_with_supplier_b = next(
+            (p for p in parts_data if p["supplier"]["id"] == self.supplier2.id), None
+        )
+        self.assertIsNotNone(part_with_supplier_b)
+
+        # サプライヤー情報がネストされていることを確認
+        self.assertEqual(part_with_supplier_b["supplier"]["id"], self.supplier2.id)
+        self.assertEqual(part_with_supplier_b["supplier"]["name"], "サプライヤーB")
+
+    def test_list_parts_empty(self):
+        """
+        部品が1件も登録されていない場合の挙動をテスト
+        """
+        # すべての部品を削除
+        Part.objects.all().delete()
+
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # ページネーションありの場合
+        if "results" in response.data:
+            self.assertEqual(response.data["count"], 0)
+            self.assertEqual(len(response.data["results"]), 0)
+        else:
+            # ページネーションなしの場合
+            self.assertEqual(len(response.data), 0)

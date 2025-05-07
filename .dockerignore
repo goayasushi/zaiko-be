@@ -2,3 +2,4 @@
 Dockerfile
 .gitignore
 **/__pycache__/
+seed_data.sh
