@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "accounts",
     "masters",
+    "django_cleanup.apps.CleanupConfig",
 ]
 
 # 共通のミドルウェア
